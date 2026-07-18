@@ -393,11 +393,16 @@ function buildMetrics(sessions, timeframe) {
       const cv=mean>0?Math.sqrt(variance)/mean:0;
       const confidence=pts.length>=5&&cv<0.4?"high":pts.length>=3&&cv<0.7?"medium":"low";
 
+      // Single priority signal for the UI: high = a clear actionable issue (waste being
+      // trimmed, or a stockout pattern); medium = worth a glance (declining trend, or not
+      // enough data to be confident); low = stable, no action needed.
+      const priority=flag?"high":(declineSince||confidence==="low")?"medium":"low";
+
       return{
         flavor:f,flavorShort:f.split(" ")[0],
         avgSold:Math.round(weightedAvg*10)/10,
         recommended:weightedAvg>0?Math.max(1,Math.round(base)+buffer):Math.max(0,Math.round(base)+buffer),
-        confidence,flag,
+        confidence,flag,priority,
         wasteRatePct:Math.round(wasteRate*100),
         stockoutRatePct:Math.round(stockoutRate*100),
         declineSince:declineSince?declineSince.toLocaleDateString("en-US",{day:"numeric",month:"short"}):null,
@@ -469,6 +474,36 @@ function TrendBadge({trend}){
   if(!trend||trend.direction==="flat") return <span style={{fontSize:10,color:"#AEAEB2",fontWeight:700}}>▬ steady</span>;
   const up=trend.direction==="up";
   return <span style={{fontSize:10,color:up?"#34C759":"#FF3B30",fontWeight:700}}>{up?"▲":"▼"} {Math.abs(trend.delta)}pt {up?"improving":"declining"}</span>;
+}
+const PRIORITY_COLOR={high:"#FF3B30",medium:"#FF9500",low:"#8E8E93"};
+const PRIORITY_RANK={high:0,medium:1,low:2};
+function GymReorderCard({g,color}){
+  const [showAll,setShowAll]=useState(false);
+  const sorted=[...g.flavors].sort((a,b)=>PRIORITY_RANK[a.priority]-PRIORITY_RANK[b.priority]);
+  const actionable=sorted.filter(f=>f.priority!=="low");
+  const shown=showAll?sorted:(actionable.length?actionable:sorted.slice(0,3));
+  const hasMore=shown.length<sorted.length;
+  return(
+    <div style={{background:"#FFFFFF",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 6px 20px rgba(0,0,0,0.05)",borderRadius:18,padding:20,border:`1px solid ${color}33`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontSize:14,fontWeight:700,color}}>{g.gymShort}</div>
+        <TrendBadge trend={g.trend}/>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:13}}>
+        {shown.map(f=>(
+          <div key={f.flavor} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,color:"#1D1D1F"}}>{f.flavor}</span>
+            <div style={{display:"flex",alignItems:"center",gap:9}}>
+              <span style={{fontSize:9,fontWeight:700,color:PRIORITY_COLOR[f.priority],background:PRIORITY_COLOR[f.priority]+"16",padding:"3px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.3}}>{f.priority}</span>
+              <span style={{fontSize:14,fontWeight:700,color:"#1D1D1F",minWidth:46,textAlign:"right"}}>{f.recommended} pcs</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {hasMore&&<button onClick={()=>setShowAll(true)} style={{marginTop:16,background:"none",border:"none",color:"#5E5CE6",fontSize:12,fontWeight:600,cursor:"pointer",padding:0}}>View all {sorted.length} flavors</button>}
+      {showAll&&actionable.length<sorted.length&&<button onClick={()=>setShowAll(false)} style={{marginTop:16,background:"none",border:"none",color:"#AEAEB2",fontSize:12,fontWeight:600,cursor:"pointer",padding:0}}>Show less</button>}
+    </div>
+  );
 }
 function SectionTitle({children}){
   return(
@@ -550,31 +585,21 @@ function UploadScreen({onFile,dragging,onDragOver,onDragLeave,onDrop,error,syncL
 // It looks like: https://script.google.com/macros/s/AKfycb.../exec
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyjae8ljZwXp3pdcxqV5B-MhiQc3PCwEAvf2MMYV29E0qMprWulUZwa4dlCpMZJ9tkc/exec";
 
-// Content-Type must stay "text/plain" (not "application/json") — Apps Script Web Apps don't
-// respond to CORS preflight (OPTIONS) requests, and application/json triggers one. text/plain
-// keeps this a "simple request" so the browser skips preflight entirely. Apps Script still
-// parses the body as JSON on its end regardless of this header.
+// Apps Script Web Apps proxy every request through a second googleusercontent.com redirect
+// before your code runs. Browsers automatically convert a POST into a GET on that redirect
+// (per the fetch spec) — which silently drops the request body. Query-string params survive
+// the redirect fine, so this uses GET with everything in the URL instead of a POST body.
 async function callAppsScript(payload){
-
   const params = new URLSearchParams();
-
   Object.entries(payload).forEach(([key,value])=>{
     if(value!==undefined && value!==null){
       params.append(key,value);
     }
   });
-
-  const res = await fetch(
-    `${APPS_SCRIPT_URL}?${params.toString()}`,
-    {
-      method:"GET"
-    }
-  );
-
+  const res = await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`, {method:"GET"});
   if(!res.ok){
     throw new Error(`HTTP ${res.status}`);
   }
-
   return await res.json();
 }
 
@@ -583,23 +608,23 @@ function LoginScreen({onSubmit,loading,error}){
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
   return(
-    <div style={{minHeight:"100vh",background:"#F5F5F7",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,sans-serif",letterSpacing:"-0.01em"}}>
-      <div style={{width:44,height:44,borderRadius:12,background:"#1D1D1F",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:20}}>
-        <span style={{color:"#fff",fontSize:18,fontWeight:800,letterSpacing:"-0.03em"}}>FF</span>
+    <div style={{minHeight:"100vh",background:"#FAFAFC",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,sans-serif",letterSpacing:"-0.01em"}}>
+      <div style={{width:52,height:52,borderRadius:16,background:"#5E5CE614",border:"1px solid #5E5CE633",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:22}}>
+        <span style={{color:"#5E5CE6",fontSize:20,fontWeight:700,letterSpacing:"-0.03em"}}>FF</span>
       </div>
-      <h1 style={{color:"#1D1D1F",fontSize:20,fontWeight:700,letterSpacing:"-0.02em",margin:"0 0 28px"}}>Sign in to FitFocus</h1>
-      <form onSubmit={e=>{e.preventDefault();if(email&&password&&!loading)onSubmit(email,password);}} style={{width:"100%",maxWidth:320}}>
+      <h1 style={{color:"#1D1D1F",fontSize:19,fontWeight:600,letterSpacing:"-0.02em",margin:"0 0 32px"}}>Sign in to FitFocus</h1>
+      <form onSubmit={e=>{e.preventDefault();if(email&&password&&!loading)onSubmit(email,password);}} style={{width:"100%",maxWidth:300}}>
         <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" autoFocus autoCapitalize="none" autoCorrect="off"
-          style={{width:"100%",boxSizing:"border-box",padding:"12px 16px",borderRadius:12,border:"1px solid #D1D1D6",fontSize:15,fontFamily:"inherit",marginBottom:10,outline:"none"}}/>
+          style={{width:"100%",boxSizing:"border-box",padding:"13px 16px",borderRadius:12,border:"1px solid #E5E5EA",background:"#fff",fontSize:15,fontFamily:"inherit",marginBottom:10,outline:"none"}}/>
         <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password"
-          style={{width:"100%",boxSizing:"border-box",padding:"12px 16px",borderRadius:12,border:"1px solid #D1D1D6",fontSize:15,fontFamily:"inherit",marginBottom:14,outline:"none"}}/>
+          style={{width:"100%",boxSizing:"border-box",padding:"13px 16px",borderRadius:12,border:"1px solid #E5E5EA",background:"#fff",fontSize:15,fontFamily:"inherit",marginBottom:18,outline:"none"}}/>
         <button type="submit" disabled={loading||!email||!password}
-          style={{width:"100%",padding:"12px 16px",borderRadius:12,border:"none",cursor:loading?"default":"pointer",fontSize:15,fontWeight:700,fontFamily:"inherit",
-            background:loading?"#AEAEB2":"#1D1D1F",color:"#fff"}}>
+          style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"none",cursor:loading?"default":"pointer",fontSize:15,fontWeight:600,fontFamily:"inherit",
+            background:loading?"#C7C7E6":"#5E5CE6",color:"#fff",transition:"background 0.15s"}}>
           {loading?"Signing in…":"Sign in"}
         </button>
       </form>
-      {error&&<div style={{marginTop:16,background:"#FFF1F0",color:"#D70015",padding:"10px 20px",borderRadius:10,fontSize:13,maxWidth:320,textAlign:"center"}}>{error}</div>}
+      {error&&<div style={{marginTop:16,background:"#FFF1F0",color:"#D70015",padding:"10px 20px",borderRadius:10,fontSize:13,maxWidth:300,textAlign:"center"}}>{error}</div>}
     </div>
   );
 }
@@ -735,9 +760,10 @@ export default function FitFocusDashboard(){
     {id:"flavors",label:"By Flavor"},
     {id:"trends",label:"Trends"},
     {id:"financial",label:"Financial"},
-    {id:"profit",label:"Profit/Session"},
+    {id:"profit",label:"Profit"},
     {id:"invoice",label:"Invoice"},
     {id:"forecast",label:"🔮"},
+    {id:"review",label:"Gym Review"},
   ];
 
   const GYM_COLORS=P.gyms;
@@ -746,7 +772,7 @@ export default function FitFocusDashboard(){
   return(
     <div style={{minHeight:"100vh",background:"#F5F5F7",color:"#1D1D1F",fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,sans-serif",letterSpacing:"-0.01em",paddingBottom:60}}>
       {/* Header */}
-      <div style={{background:"#FFFFFF",borderBottom:"1px solid #E5E5EA",padding:"20px 26px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,position:"sticky",top:0,zIndex:10,backdropFilter:"saturate(180%) blur(20px)"}}>
+      <div style={{background:"#FFFFFF",borderBottom:"1px solid #E5E5EA",padding:"20px 26px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
         <div>
           <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:4}}>
             <span style={{fontSize:19,fontWeight:700,letterSpacing:"-0.02em"}}>FitFocus</span>
@@ -758,8 +784,8 @@ export default function FitFocusDashboard(){
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={syncFromScript} disabled={syncLoading}
-            style={{cursor:syncLoading?"default":"pointer",background:"#F5F5F7",border:"1px solid #E5E5EA",borderRadius:980,padding:"8px 14px",fontSize:13,fontWeight:600,color:"#1D1D1F",display:"flex",alignItems:"center",gap:6}}>
-            {syncLoading?"⏳":"🔄"} {syncLoading?"Syncing…":"Refresh"}
+            style={{cursor:syncLoading?"default":"pointer",background:"#F5F5F7",border:"1px solid #E5E5EA",borderRadius:980,padding:"8px 16px",fontSize:13,fontWeight:600,color:"#1D1D1F"}}>
+            {syncLoading?"Syncing…":"Refresh"}
           </button>
           <label onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
             style={{cursor:"pointer",background:"#F5F5F7",border:"1px solid #E5E5EA",borderRadius:980,padding:"8px 16px",fontSize:13,fontWeight:600,color:"#1D1D1F",display:"flex",alignItems:"center",gap:7,transition:"background 0.15s"}}>
@@ -1090,30 +1116,6 @@ export default function FitFocusDashboard(){
             ))}
           </div>
 
-          <SectionTitle>Optimal Quantity Recommendation</SectionTitle>
-          {M.qtyRec.map((g,i)=>(
-            <div key={g.gym} style={{background:"#FFFFFF",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 6px 20px rgba(0,0,0,0.05)",borderRadius:18,padding:"14px 16px",marginBottom:12,border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}33`}}>
-              <div style={{fontSize:12,fontWeight:700,color:GYM_COLORS[i%GYM_COLORS.length],marginBottom:10}}>{g.gym}</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:8}}>
-                {g.flavors.map(f=>(
-                  <div key={f.flavor} style={{background:"#F5F5F7",borderRadius:10,padding:"10px 12px",border:"1px solid #E5E5EA"}}>
-                    <div style={{fontSize:11,color:"#8E8E93",marginBottom:4}}>{f.flavor}</div>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <div style={{fontSize:9,color:"#AEAEB2"}}>Avg sold</div>
-                        <div style={{fontSize:13,fontWeight:700,color:"#6E6E73"}}>{f.avgSold}</div>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontSize:9,color:"#AEAEB2"}}>Rec.</div>
-                        <div style={{fontSize:16,fontWeight:700,color:"#0A84FF"}}>{f.recommended}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
         </>)}
 
         {/* PROFIT PER SESSION */}
@@ -1274,35 +1276,9 @@ export default function FitFocusDashboard(){
               <InsightCard icon="📊" label="PROJECTED PROFIT" color="#AF52DE" title={formatRpFull(proj.profit)} sub={proj.deltaPct===null?"not enough history to compare":`${dirArrow} ${Math.abs(proj.deltaPct)}% vs prior sessions`}/>
             </div>
 
-            <SectionTitle>Recommended Qty per Gym</SectionTitle>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:12,marginBottom:8}}>
-              {(M.qtyRec||[]).map((g,i)=>(
-                <div key={g.gym} style={{background:"#FFFFFF",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 6px 20px rgba(0,0,0,0.05)",borderRadius:18,padding:"15px 16px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}44`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                    <div style={{fontSize:13,fontWeight:700,color:GYM_COLORS[i%GYM_COLORS.length]}}>{g.gymShort}</div>
-                    <TrendBadge trend={g.trend}/>
-                  </div>
-                  {g.flavors.map(f=>{
-                    const confColor=f.confidence==="high"?"#34C759":f.confidence==="medium"?"#FF9500":"#AEAEB2";
-                    return(
-                    <div key={f.flavor} style={{padding:"5px 0",borderTop:"1px solid #F2F2F7"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,color:"#3A3A3C"}}>
-                        <span>{f.flavor}</span>
-                        <span style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:9,fontWeight:700,color:confColor,background:confColor+"18",padding:"2px 6px",borderRadius:20,textTransform:"uppercase"}}>{f.confidence}</span>
-                          <span style={{fontWeight:700}}>{f.recommended} pcs</span>
-                        </span>
-                      </div>
-                      {(f.flag||f.declineSince)&&(
-                        <div style={{fontSize:10,color:f.flag&&f.flag.includes("waste")?"#FF3B30":"#FF9500",marginTop:1}}>
-                          {f.flag}{f.flag&&f.declineSince?" · ":""}{f.declineSince?`declining since ${f.declineSince}`:""}
-                        </div>
-                      )}
-                    </div>
-                    );
-                  })}
-                </div>
-              ))}
+            <SectionTitle>Recommended Quantity</SectionTitle>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14,marginBottom:8}}>
+              {(M.qtyRec||[]).map((g,i)=><GymReorderCard key={g.gym} g={g} color={GYM_COLORS[i%GYM_COLORS.length]}/>)}
             </div>
 
             <SectionTitle>Sell Rate by Gym</SectionTitle>
@@ -1328,6 +1304,37 @@ export default function FitFocusDashboard(){
                       <span>{w.wasteUnits} pcs unsold</span>
                       <span style={{fontWeight:700,color:"#FF9500"}}>{formatRpFull(w.wasteCost)}</span>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
+        {activeTab==="review"&&(()=>{
+          const items=(M.qtyRec||[]).flatMap(g=>g.flavors.filter(f=>f.priority!=="low").map(f=>({...f,gym:g.gym,gymShort:g.gymShort})))
+            .sort((a,b)=>PRIORITY_RANK[a.priority]-PRIORITY_RANK[b.priority]||b.wasteCost-a.wasteCost);
+          return(
+          <div>
+            <SectionTitle>Gym Review</SectionTitle>
+            {items.length===0?(
+              <div style={{textAlign:"center",padding:"60px 20px",color:"#AEAEB2",fontSize:13}}>Nothing needs attention right now — every gym and flavor looks stable.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {items.map(f=>(
+                  <div key={f.gym+f.flavor} style={{background:"#FFFFFF",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 6px 20px rgba(0,0,0,0.05)",borderRadius:16,padding:"18px 20px",borderLeft:`3px solid ${PRIORITY_COLOR[f.priority]}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
+                      <div style={{fontSize:14,fontWeight:700,color:"#1D1D1F"}}>{f.gymShort} <span style={{fontWeight:400,color:"#AEAEB2"}}>· {f.flavor}</span></div>
+                      <span style={{fontSize:9,fontWeight:700,color:PRIORITY_COLOR[f.priority],background:PRIORITY_COLOR[f.priority]+"16",padding:"3px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.3}}>{f.priority}</span>
+                    </div>
+                    <div style={{fontSize:13,color:"#6E6E73",lineHeight:1.6}}>
+                      {f.flag==="high waste — trimmed"&&<div>Waste rate is {f.wasteRatePct}% of what's delivered — recommendation trimmed below the raw average to cut over-delivery.</div>}
+                      {f.flag==="often sells out"&&<div>Sells out in {f.stockoutRatePct}% of recent sessions with almost no waste — likely under-stocked, recommendation nudged up.</div>}
+                      {f.declineSince&&<div>Sales have been declining since {f.declineSince}.</div>}
+                      {!f.flag&&!f.declineSince&&<div>Limited recent data — recommendation is a lower-confidence estimate.</div>}
+                    </div>
+                    {f.wasteCost>0&&<div style={{marginTop:8,fontSize:12,color:"#FF9500",fontWeight:600}}>{formatRpFull(f.wasteCost)} lost to waste this window</div>}
                   </div>
                 ))}
               </div>
