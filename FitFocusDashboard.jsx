@@ -555,9 +555,27 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz4GRhNOWY5SqVf
 // keeps this a "simple request" so the browser skips preflight entirely. Apps Script still
 // parses the body as JSON on its end regardless of this header.
 async function callAppsScript(payload){
-  const res=await fetch(APPS_SCRIPT_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+
+  const params = new URLSearchParams();
+
+  Object.entries(payload).forEach(([key,value])=>{
+    if(value!==undefined && value!==null){
+      params.append(key,value);
+    }
+  });
+
+  const res = await fetch(
+    `${APPS_SCRIPT_URL}?${params.toString()}`,
+    {
+      method:"GET"
+    }
+  );
+
+  if(!res.ok){
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  return await res.json();
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
