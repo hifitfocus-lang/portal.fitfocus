@@ -548,7 +548,7 @@ function UploadScreen({onFile,dragging,onDragOver,onDragLeave,onDrop,error,syncL
 // ── APPS SCRIPT CONFIG ───────────────────────────────────────────────────────
 // Paste your deployed Apps Script Web App URL here (see api/AppsScript.gs setup instructions).
 // It looks like: https://script.google.com/macros/s/AKfycb.../exec
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz4GRhNOWY5SqVfHXa9EFwHWLo2XUKqnDOZ5akM8EEqfzVpUsdw1Kg_X--BJUD1gsGlMg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbydliPqxEZMZKD4Wu2Vy1XIFPw3ixXukXTZeLKVY5q2VWC5zccp1p_1mbwLh4K6Yc4pDw/exec";
 
 // Content-Type must stay "text/plain" (not "application/json") — Apps Script Web Apps don't
 // respond to CORS preflight (OPTIONS) requests, and application/json triggers one. text/plain
