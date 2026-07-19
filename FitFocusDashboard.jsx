@@ -449,7 +449,8 @@ function buildMetrics(sessions, timeframe) {
   const nextSessionProjection={
     revenue:projRevenue,profit:projProfit,
     direction:projDeltaPct===null?"flat":projDeltaPct>5?"up":projDeltaPct<-5?"down":"flat",
-    deltaPct:projDeltaPct,basisSessions:projWindow
+    deltaPct:projDeltaPct,basisSessions:projWindow,
+    priorProfit:priorFin.length?Math.round(priorAvgProfit):null,priorSessions:priorFin.length
   };
 
   const n=byDate.length;
@@ -503,12 +504,41 @@ function StatCard({label,value,color,icon,span=1,hero=false}){
 }
 function InsightCard({icon,label,title,sub,color,span=1}){
   return(
-    <div style={{gridColumn:`span ${span}`,background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${color}33`,display:"flex",gap:12,alignItems:"flex-start"}}>
+    <div style={{gridColumn:`span ${span}`,background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${color}33`,display:"flex",gap:12,alignItems:"flex-start",height:"100%",boxSizing:"border-box"}}>
       <div style={{width:32,height:32,minWidth:32,borderRadius:10,background:`${color}1c`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{icon}</div>
       <div style={{minWidth:0}}>
         <div style={{fontSize:10,color,fontWeight:700,letterSpacing:1,marginBottom:4}}>{label}</div>
         <div style={{fontSize:15,fontWeight:800,color:"#1D1D1F",marginBottom:2}}>{title}</div>
         <div style={{fontSize:11,color:"#8E8E93"}}>{sub}</div>
+      </div>
+    </div>
+  );
+}
+// Auto-drifting slideshow for the 4 insight cards — same size for all, advances on its own,
+// and tapping the card or a dot jumps to a slide directly (no swipe-gesture plumbing needed).
+function InsightCarousel({items}){
+  const [index,setIndex]=useState(0);
+  useEffect(()=>{
+    const t=setInterval(()=>setIndex(i=>(i+1)%items.length),4500);
+    return ()=>clearInterval(t);
+  },[items.length]);
+  return(
+    <div>
+      <div style={{position:"relative",overflow:"hidden",borderRadius:18,height:96}}>
+        <div style={{display:"flex",height:"100%",transition:"transform 0.55s cubic-bezier(0.4,0,0.2,1)",transform:`translateX(-${index*100}%)`}}>
+          {items.map((it,i)=>(
+            <div key={i} onClick={()=>setIndex((index+1)%items.length)} style={{minWidth:"100%",height:"100%",cursor:"pointer"}}>
+              <InsightCard {...it}/>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:10}}>
+        {items.map((_,i)=>(
+          <button key={i} onClick={()=>setIndex(i)}
+            style={{width:i===index?18:6,height:6,borderRadius:3,border:"none",padding:0,cursor:"pointer",
+              background:i===index?"#5E5CE6":"#D1D1D6",transition:"width 0.3s,background 0.3s"}}/>
+        ))}
       </div>
     </div>
   );
@@ -544,6 +574,41 @@ function GymReorderCard({g,color}){
       </div>
       {hasMore&&<button onClick={()=>setShowAll(true)} style={{marginTop:16,background:"none",border:"none",color:"#5E5CE6",fontSize:12,fontWeight:600,cursor:"pointer",padding:0}}>View all {sorted.length} flavors</button>}
       {showAll&&actionable.length<sorted.length&&<button onClick={()=>setShowAll(false)} style={{marginTop:16,background:"none",border:"none",color:"#AEAEB2",fontSize:12,fontWeight:600,cursor:"pointer",padding:0}}>Show less</button>}
+    </div>
+  );
+}
+// Collapsible per-gym card for the Gym Review tab — defaults closed (just name + flagged
+// count), tap the header to expand and reveal the flavor-level commentary.
+function GymReviewCard({g}){
+  const [open,setOpen]=useState(false);
+  return(
+    <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"18px 20px",borderLeft:`3px solid ${g.topSignal.color}`}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{display:"inline-flex",transform:open?"rotate(90deg)":"rotate(0deg)",transition:"transform 0.2s",color:"#AEAEB2"}}><Glyph name="trendUp" size={11} color="#AEAEB2"/></span>
+          <div style={{fontSize:15,fontWeight:700,color:"#1D1D1F"}}>{g.gymShort}</div>
+        </div>
+        <span style={{fontSize:9,fontWeight:700,color:g.topSignal.color,background:g.topSignal.color+"16",padding:"3px 8px",borderRadius:20,letterSpacing:0.3}}>{g.issues.length} flagged</span>
+      </div>
+      {open&&(
+        <div style={{marginTop:14}}>
+          {g.issues.map((f,i)=>(
+            <div key={f.flavor} style={{paddingTop:i===0?0:12,marginTop:i===0?0:12,borderTop:i===0?"none":"1px solid rgba(0,0,0,0.07)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                <span style={{fontSize:13,fontWeight:600,color:"#1D1D1F"}}>{f.flavor}</span>
+                <span style={{fontSize:9,fontWeight:700,color:f.signal.color,background:f.signal.color+"16",padding:"2px 7px",borderRadius:20,letterSpacing:0.3}}>{f.signal.label}</span>
+              </div>
+              <div style={{fontSize:12,color:"#6E6E73",lineHeight:1.5}}>
+                {f.signal.code==="trim"&&<div>Waste rate is {f.wasteRatePct}% of what's delivered — recommendation trimmed below the raw average to cut over-delivery.</div>}
+                {f.signal.code==="boost"&&<div>Sells out in {f.stockoutRatePct}% of recent sessions with almost no waste — likely under-stocked, an opportunity to increase.</div>}
+                {f.signal.code==="watch"&&<div>Sales have been declining since {f.declineSince}.</div>}
+                {f.signal.code==="lowdata"&&<div>Only {f.dataPoints} session{f.dataPoints===1?"":"s"} of recent history — recommendation is a rough estimate until more data comes in.</div>}
+              </div>
+              {f.signal.code==="trim"&&f.wasteCost>0&&<div style={{marginTop:4,fontSize:11,color:"#FF3B30",fontWeight:600}}>{formatRpFull(f.wasteCost)} lost to waste this window</div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -951,20 +1016,22 @@ export default function FitFocusDashboard(){
             <StatCard icon={<Glyph name="trash" color="#FF9500"/>} label="Total Waste" value={M.totalWaste} color="#FF9500"/>
             <StatCard icon={<Glyph name="trendUp" color="#0A84FF"/>} label="Avg Sell Rate" value={`${M.avgSellRate}%`} color="#0A84FF" span={2}/>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12,marginBottom:4}}>
-            <InsightCard icon={<Glyph name="trophy" color="#34C759"/>} label="BEST GYM" color="#34C759" title={bestGym.gym} sub={`${bestGym.sellRate}% sell rate · ${bestGym.sold} sold`} span={2}/>
-            <InsightCard icon={<Glyph name="alert" color="#FF9500"/>} label="MOST WASTE GYM" color="#FF9500" title={worstGym.gym} sub={`${worstGym.waste} units wasted`}/>
-            <InsightCard icon={<Glyph name="star" color="#34C759"/>} label="TOP FLAVOR" color="#34C759" title={bestFlavor.flavor} sub={`${bestFlavor.sellRate}% sell rate`}/>
-            {(()=>{
-              const improving=[...activeGymData].sort((a,b)=>(b.trend?.delta||0)-(a.trend?.delta||0))[0];
-              const declining=[...activeGymData].sort((a,b)=>(a.trend?.delta||0)-(b.trend?.delta||0))[0];
-              const show=improving&&improving.trend?.direction==="up"?improving:declining;
-              const isUp=show===improving&&improving?.trend?.direction==="up";
-              return show&&show.trend&&show.trend.direction!=="flat"
-                ?<InsightCard icon={<Glyph name={isUp?"trendUp":"trendDown"} color={isUp?"#34C759":"#FF3B30"}/>} label={isUp?"MOST IMPROVED":"MOST DECLINING"} color={isUp?"#34C759":"#FF3B30"} title={show.gym} sub={`${isUp?"+":""}${show.trend.delta}pt sell rate vs earlier sessions`}/>
-                :<InsightCard icon={<Glyph name="alert" color="#FF9500"/>} label="MOST WASTED FLAVOR" color="#FF9500" title={worstFlavor.flavor} sub={`${worstFlavor.waste} units wasted`}/>;
-            })()}
-          </div>
+          {(()=>{
+            const improving=[...activeGymData].sort((a,b)=>(b.trend?.delta||0)-(a.trend?.delta||0))[0];
+            const declining=[...activeGymData].sort((a,b)=>(a.trend?.delta||0)-(b.trend?.delta||0))[0];
+            const show=improving&&improving.trend?.direction==="up"?improving:declining;
+            const isUp=show===improving&&improving?.trend?.direction==="up";
+            const fourth=show&&show.trend&&show.trend.direction!=="flat"
+              ?{icon:<Glyph name={isUp?"trendUp":"trendDown"} color={isUp?"#34C759":"#FF3B30"}/>,label:isUp?"MOST IMPROVED":"MOST DECLINING",color:isUp?"#34C759":"#FF3B30",title:show.gym,sub:`${isUp?"+":""}${show.trend.delta}pt sell rate vs earlier sessions`}
+              :{icon:<Glyph name="alert" color="#FF9500"/>,label:"MOST WASTED FLAVOR",color:"#FF9500",title:worstFlavor.flavor,sub:`${worstFlavor.waste} units wasted`};
+            const items=[
+              {icon:<Glyph name="trophy" color="#34C759"/>,label:"BEST GYM",color:"#34C759",title:bestGym.gym,sub:`${bestGym.sellRate}% sell rate · ${bestGym.sold} sold`},
+              {icon:<Glyph name="alert" color="#FF9500"/>,label:"MOST WASTE GYM",color:"#FF9500",title:worstGym.gym,sub:`${worstGym.waste} units wasted`},
+              {icon:<Glyph name="star" color="#34C759"/>,label:"TOP FLAVOR",color:"#34C759",title:bestFlavor.flavor,sub:`${bestFlavor.sellRate}% sell rate`},
+              fourth
+            ];
+            return <InsightCarousel items={items}/>;
+          })()}
           {cutGymData.length>0&&(
             <div style={{fontSize:11,color:"#AEAEB2",marginBottom:8,padding:"0 2px"}}>
               ℹ️ {cutGymData.map(g=>g.gymShort).join(", ")} are no longer supplied (not present in the last {M.recentWindow} sessions) — excluded from rankings & recommendations, though their data remains in history & trends.
@@ -1386,7 +1453,7 @@ export default function FitFocusDashboard(){
             <SectionTitle>Next Session — Projection</SectionTitle>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:8}}>
               <InsightCard icon={<Glyph name="cash" color="#34C759"/>} label="PROJECTED REVENUE" color="#34C759" title={formatRpFull(proj.revenue)} sub={`avg of last ${proj.basisSessions} sessions`}/>
-              <InsightCard icon={<Glyph name="bars" color="#AF52DE"/>} label="PROJECTED PROFIT" color="#AF52DE" title={formatRpFull(proj.profit)} sub={proj.deltaPct===null?"not enough history to compare":`${dirArrow} ${Math.abs(proj.deltaPct)}% vs prior sessions`}/>
+              <InsightCard icon={<Glyph name="bars" color="#AF52DE"/>} label="PROJECTED PROFIT" color="#AF52DE" title={formatRpFull(proj.profit)} sub={proj.deltaPct===null?`avg of last ${proj.basisSessions} sessions — not enough history yet to compare`:`${dirArrow} ${Math.abs(proj.deltaPct)}% vs avg of prior ${proj.priorSessions} session${proj.priorSessions===1?"":"s"} (${formatRpFull(proj.priorProfit)})`}/>
             </div>
 
             <SectionTitle>Recommended Quantity</SectionTitle>
@@ -1438,29 +1505,7 @@ export default function FitFocusDashboard(){
               <div style={{textAlign:"center",padding:"60px 20px",color:"#AEAEB2",fontSize:13}}>Nothing needs attention right now — every gym and flavor looks stable.</div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                {gymsWithIssues.map(g=>(
-                  <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"18px 20px",borderLeft:`3px solid ${g.topSignal.color}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
-                      <div style={{fontSize:15,fontWeight:700,color:"#1D1D1F"}}>{g.gymShort}</div>
-                      <span style={{fontSize:9,fontWeight:700,color:g.topSignal.color,background:g.topSignal.color+"16",padding:"3px 8px",borderRadius:20,letterSpacing:0.3}}>{g.issues.length} flagged</span>
-                    </div>
-                    {g.issues.map((f,i)=>(
-                      <div key={f.flavor} style={{paddingTop:i===0?0:12,marginTop:i===0?0:12,borderTop:i===0?"none":"1px solid rgba(0,0,0,0.07)"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                          <span style={{fontSize:13,fontWeight:600,color:"#1D1D1F"}}>{f.flavor}</span>
-                          <span style={{fontSize:9,fontWeight:700,color:f.signal.color,background:f.signal.color+"16",padding:"2px 7px",borderRadius:20,letterSpacing:0.3}}>{f.signal.label}</span>
-                        </div>
-                        <div style={{fontSize:12,color:"#6E6E73",lineHeight:1.5}}>
-                          {f.signal.code==="trim"&&<div>Waste rate is {f.wasteRatePct}% of what's delivered — recommendation trimmed below the raw average to cut over-delivery.</div>}
-                          {f.signal.code==="boost"&&<div>Sells out in {f.stockoutRatePct}% of recent sessions with almost no waste — likely under-stocked, an opportunity to increase.</div>}
-                          {f.signal.code==="watch"&&<div>Sales have been declining since {f.declineSince}.</div>}
-                          {f.signal.code==="lowdata"&&<div>Only {f.dataPoints} session{f.dataPoints===1?"":"s"} of recent history — recommendation is a rough estimate until more data comes in.</div>}
-                        </div>
-                        {f.signal.code==="trim"&&f.wasteCost>0&&<div style={{marginTop:4,fontSize:11,color:"#FF3B30",fontWeight:600}}>{formatRpFull(f.wasteCost)} lost to waste this window</div>}
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                {gymsWithIssues.map(g=><GymReviewCard key={g.gym} g={g}/>)}
               </div>
             )}
           </div>
