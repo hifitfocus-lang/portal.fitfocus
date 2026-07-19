@@ -374,9 +374,14 @@ function buildMetrics(sessions, timeframe) {
       const totalSisa=pts.reduce((a,p)=>a+p.sisa,0);
       const wasteRate=totalDititip>0?totalSisa/totalDititip:0;
       const stockoutRate=pts.filter(p=>p.sisa===0&&p.dititip>0).length/pts.length;
+      // Below 4 data points, waste%/stockout% swing too wildly on 1-2 sessions to mean
+      // anything (e.g. one sold-out session out of 3 is already 33%) — treat as "not enough
+      // history yet" instead of flagging a false signal. 4 matches the minimum the
+      // decline-detector below also requires, so the two stay consistent.
+      const enoughData=pts.length>=4;
       let buffer=0,flag=null;
-      if(wasteRate>0.20){buffer=-1;flag="high waste — trimmed";}
-      else if(wasteRate<0.05&&stockoutRate>0.30){buffer=1;flag="often sells out";}
+      if(enoughData&&wasteRate>0.20){buffer=-1;flag="high waste — trimmed";}
+      else if(enoughData&&wasteRate<0.05&&stockoutRate>0.30){buffer=1;flag="often sells out";}
 
       let declineSince=null;
       if(pts.length>=4){
@@ -393,16 +398,26 @@ function buildMetrics(sessions, timeframe) {
       const cv=mean>0?Math.sqrt(variance)/mean:0;
       const confidence=pts.length>=5&&cv<0.4?"high":pts.length>=3&&cv<0.7?"medium":"low";
 
-      // Single priority signal for the UI: high = a clear actionable issue (waste being
-      // trimmed, or a stockout pattern); medium = worth a glance (declining trend, or not
-      // enough data to be confident); low = stable, no action needed.
-      const priority=flag?"high":(declineSince||confidence==="low")?"medium":"low";
+      // Action-oriented signal instead of a flat severity level — each code says what to DO,
+      // not just how alarming it is, and each gets its own color instead of red-means-anything:
+      //   trim    = waste is high, cut the delivery back (red — cost is being lost)
+      //   boost   = selling out with almost no waste, likely under-stocked (blue — opportunity,
+      //             not a problem, so it should never read as an alarm)
+      //   watch   = a real declining trend, worth keeping an eye on (amber)
+      //   lowdata = under 4 sessions of history, recommendation is a rough estimate (gray)
+      //   stable  = no signal — filtered out of the "needs attention" views entirely
+      let signal;
+      if(flag==="high waste — trimmed") signal={code:"trim",label:"TRIM",color:"#FF3B30"};
+      else if(flag==="often sells out") signal={code:"boost",label:"BOOST",color:"#0A84FF"};
+      else if(declineSince) signal={code:"watch",label:"WATCH",color:"#FF9500"};
+      else if(!enoughData) signal={code:"lowdata",label:"LOW DATA",color:"#8E8E93"};
+      else signal={code:"stable",label:null,color:null};
 
       return{
         flavor:f,flavorShort:f.split(" ")[0],
         avgSold:Math.round(weightedAvg*10)/10,
         recommended:weightedAvg>0?Math.max(1,Math.round(base)+buffer):Math.max(0,Math.round(base)+buffer),
-        confidence,flag,priority,
+        confidence,flag,signal,
         wasteRatePct:Math.round(wasteRate*100),
         stockoutRatePct:Math.round(stockoutRate*100),
         declineSince:declineSince?declineSince.toLocaleDateString("en-US",{day:"numeric",month:"short"}):null,
@@ -447,6 +462,30 @@ function buildMetrics(sessions, timeframe) {
 }
 
 // ── PALETTE ──────────────────────────────────────────────────────────────────
+// ── ICONS ────────────────────────────────────────────────────────────────────
+// Minimal stroke-based line icons instead of OS emoji — emoji render as full-color cartoon
+// glyphs that clash with the glass/neumorphic look no matter what's wrapped around them.
+function Glyph({name,size=16,color="currentColor"}){
+  const c={width:size,height:size,viewBox:"0 0 24 24",fill:"none",stroke:color,strokeWidth:1.8,strokeLinecap:"round",strokeLinejoin:"round"};
+  switch(name){
+    case"box":return(<svg {...c}><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>);
+    case"check":return(<svg {...c}><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>);
+    case"trash":return(<svg {...c}><path d="M4 7h16"/><path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>);
+    case"trendUp":return(<svg {...c}><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>);
+    case"trendDown":return(<svg {...c}><path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/></svg>);
+    case"trophy":return(<svg {...c}><path d="M8 4h8v4a4 4 0 01-8 0V4z"/><path d="M8 5H5a3 3 0 003 3"/><path d="M16 5h3a3 3 0 01-3 3"/><path d="M12 12v5"/><path d="M9 20h6"/></svg>);
+    case"alert":return(<svg {...c}><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>);
+    case"star":return(<svg {...c}><path d="M12 3l2.9 6 6.6.6-5 4.4 1.5 6.5L12 17l-5.9 3.5L7.6 14 2.6 9.6l6.6-.6L12 3z"/></svg>);
+    case"cash":return(<svg {...c}><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="14.5" r="1.3" fill={color} stroke="none"/></svg>);
+    case"bars":return(<svg {...c}><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M20 20v-3"/></svg>);
+    case"calendar":return(<svg {...c}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M3 10h18"/></svg>);
+    case"folder":return(<svg {...c}><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>);
+    case"upload":return(<svg {...c}><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>);
+    default:return null;
+  }
+}
+
+// ── PALETTE ──────────────────────────────────────────────────────────────────
 const P={sold:"#34C759",waste:"#FF9500",produced:"#5E5CE6",rate:"#0A84FF",forecast:"#AF52DE",
   gyms:["#5E5CE6","#34C759","#FF9500","#0A84FF","#FF2D55","#FFD60A","#30B0C7","#BF5AF2"],
   flavors:["#FF2D55","#5E5CE6","#FFD60A","#0A84FF","#34C759","#FF9500"]};
@@ -468,7 +507,7 @@ function InsightCard({icon,label,title,sub,color,span=1}){
       <div style={{width:32,height:32,minWidth:32,borderRadius:10,background:`${color}1c`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{icon}</div>
       <div style={{minWidth:0}}>
         <div style={{fontSize:10,color,fontWeight:700,letterSpacing:1,marginBottom:4}}>{label}</div>
-        <div style={{fontSize:15,fontWeight:800,color:"#1D1D1F",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title}</div>
+        <div style={{fontSize:15,fontWeight:800,color:"#1D1D1F",marginBottom:2}}>{title}</div>
         <div style={{fontSize:11,color:"#8E8E93"}}>{sub}</div>
       </div>
     </div>
@@ -479,12 +518,11 @@ function TrendBadge({trend}){
   const up=trend.direction==="up";
   return <span style={{fontSize:10,color:up?"#34C759":"#FF3B30",fontWeight:700}}>{up?"▲":"▼"} {Math.abs(trend.delta)}pt {up?"improving":"declining"}</span>;
 }
-const PRIORITY_COLOR={high:"#FF3B30",medium:"#FF9500",low:"#8E8E93"};
-const PRIORITY_RANK={high:0,medium:1,low:2};
+const SIGNAL_RANK={trim:0,watch:1,boost:2,lowdata:3,stable:4};
 function GymReorderCard({g,color}){
   const [showAll,setShowAll]=useState(false);
-  const sorted=[...g.flavors].sort((a,b)=>PRIORITY_RANK[a.priority]-PRIORITY_RANK[b.priority]);
-  const actionable=sorted.filter(f=>f.priority!=="low");
+  const sorted=[...g.flavors].sort((a,b)=>SIGNAL_RANK[a.signal.code]-SIGNAL_RANK[b.signal.code]);
+  const actionable=sorted.filter(f=>f.signal.code!=="stable");
   const shown=showAll?sorted:(actionable.length?actionable:sorted.slice(0,3));
   const hasMore=shown.length<sorted.length;
   return(
@@ -498,7 +536,7 @@ function GymReorderCard({g,color}){
           <div key={f.flavor} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:13,color:"#1D1D1F"}}>{f.flavor}</span>
             <div style={{display:"flex",alignItems:"center",gap:9}}>
-              <span style={{fontSize:9,fontWeight:700,color:PRIORITY_COLOR[f.priority],background:PRIORITY_COLOR[f.priority]+"16",padding:"3px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.3}}>{f.priority}</span>
+              {f.signal.label&&<span style={{fontSize:9,fontWeight:700,color:f.signal.color,background:f.signal.color+"16",padding:"3px 8px",borderRadius:20,letterSpacing:0.3}}>{f.signal.label}</span>}
               <span style={{fontSize:14,fontWeight:700,color:"#1D1D1F",minWidth:46,textAlign:"right"}}>{f.recommended} pcs</span>
             </div>
           </div>
@@ -546,7 +584,7 @@ function TimeframeSelector({value,onChange}){
 function DateFilter({cutoff,onChange}){
   return(
     <div style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",border:"1px solid rgba(255,255,255,0.5)",borderRadius:12,padding:"10px 16px",marginBottom:16}}>
-      <span style={{width:22,height:22,minWidth:22,borderRadius:7,background:"#5E5CE61c",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>📅</span>
+      <span style={{width:22,height:22,minWidth:22,borderRadius:7,background:"#5E5CE61c",display:"flex",alignItems:"center",justifyContent:"center"}}><Glyph name="calendar" size={12} color="#5E5CE6"/></span>
       <span style={{fontSize:12,color:"#8E8E93",fontWeight:600,whiteSpace:"nowrap"}}>Up to:</span>
       <input type="date" value={cutoff} onChange={e=>onChange(e.target.value)}
         style={{background:"#F5F5F7",border:"1px solid #E5E5EA",borderRadius:8,padding:"6px 10px",color:"#1D1D1F",fontSize:12,fontFamily:"inherit",outline:"none",flex:1}}/>
@@ -576,7 +614,7 @@ function UploadScreen({onFile,dragging,onDragOver,onDragLeave,onDrop,error,syncL
         <div style={{position:"relative",width:84,height:84,marginBottom:20}}>
           <div style={{position:"absolute",inset:0,borderRadius:"50%",background:"linear-gradient(135deg,#5E5CE6,#34C759)",filter:"blur(20px)",animation:"ffBreathe 2.4s ease-in-out infinite"}}/>
           <div style={{position:"absolute",inset:0,borderRadius:"50%",border:"3px solid transparent",borderTopColor:"#5E5CE6",borderRightColor:"#5E5CE633",animation:"ffSpin 1s linear infinite"}}/>
-          <div style={{position:"absolute",inset:13,borderRadius:"50%",background:"rgba(255,255,255,0.65)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.8)",fontSize:20}}>📊</div>
+          <div style={{position:"absolute",inset:13,borderRadius:"50%",background:"rgba(255,255,255,0.65)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.8)"}}><Glyph name="bars" size={22} color="#5E5CE6"/></div>
         </div>
         <div style={{position:"relative",color:"#1D1D1F",fontWeight:700,fontSize:15}}>Syncing your data…</div>
       </div>
@@ -591,7 +629,7 @@ function UploadScreen({onFile,dragging,onDragOver,onDragLeave,onDrop,error,syncL
       <label onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
         style={{position:"relative",cursor:"pointer",display:"block",width:"100%",maxWidth:420,border:`2px dashed ${dragging?"#5E5CE6":"rgba(0,0,0,0.12)"}`,borderRadius:20,padding:"44px 28px",textAlign:"center",background:dragging?"rgba(94,92,230,0.08)":"rgba(255,255,255,0.55)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:dragging?"none":"0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",transition:"all 0.2s"}}>
         <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{if(e.target.files[0])onFile(e.target.files[0]);}}/>
-        <div style={{fontSize:38,marginBottom:12}}>{dragging?"📂":"📊"}</div>
+        <div style={{marginBottom:12,color:"#5E5CE6"}}><Glyph name={dragging?"folder":"upload"} size={34}/></div>
         <div style={{color:"#1D1D1F",fontWeight:700,fontSize:15,marginBottom:6}}>{dragging?"Drop it!":"Drag & drop your Excel file"}</div>
         <div style={{color:"#AEAEB2",fontSize:13}}>or click to browse · .xlsx / .xls</div>
       </label>
@@ -908,23 +946,23 @@ export default function FitFocusDashboard(){
             </div>
           )}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gridAutoRows:"minmax(0,auto)",gap:12,marginBottom:12}}>
-            <StatCard icon="📦" label="Total Produced" value={M.totalProduced} color="#5E5CE6" span={2} hero/>
-            <StatCard icon="✅" label="Total Sold" value={M.totalSold} color="#34C759"/>
-            <StatCard icon="🗑️" label="Total Waste" value={M.totalWaste} color="#FF9500"/>
-            <StatCard icon="📈" label="Avg Sell Rate" value={`${M.avgSellRate}%`} color="#0A84FF" span={2}/>
+            <StatCard icon={<Glyph name="box" color="#5E5CE6" size={20}/>} label="Total Produced" value={M.totalProduced} color="#5E5CE6" span={2} hero/>
+            <StatCard icon={<Glyph name="check" color="#34C759"/>} label="Total Sold" value={M.totalSold} color="#34C759"/>
+            <StatCard icon={<Glyph name="trash" color="#FF9500"/>} label="Total Waste" value={M.totalWaste} color="#FF9500"/>
+            <StatCard icon={<Glyph name="trendUp" color="#0A84FF"/>} label="Avg Sell Rate" value={`${M.avgSellRate}%`} color="#0A84FF" span={2}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12,marginBottom:4}}>
-            <InsightCard icon="🏆" label="BEST GYM" color="#34C759" title={bestGym.gym} sub={`${bestGym.sellRate}% sell rate · ${bestGym.sold} sold`} span={2}/>
-            <InsightCard icon="⚠️" label="MOST WASTE GYM" color="#FF9500" title={worstGym.gym} sub={`${worstGym.waste} units wasted`}/>
-            <InsightCard icon="⭐" label="TOP FLAVOR" color="#34C759" title={bestFlavor.flavor} sub={`${bestFlavor.sellRate}% sell rate`}/>
+            <InsightCard icon={<Glyph name="trophy" color="#34C759"/>} label="BEST GYM" color="#34C759" title={bestGym.gym} sub={`${bestGym.sellRate}% sell rate · ${bestGym.sold} sold`} span={2}/>
+            <InsightCard icon={<Glyph name="alert" color="#FF9500"/>} label="MOST WASTE GYM" color="#FF9500" title={worstGym.gym} sub={`${worstGym.waste} units wasted`}/>
+            <InsightCard icon={<Glyph name="star" color="#34C759"/>} label="TOP FLAVOR" color="#34C759" title={bestFlavor.flavor} sub={`${bestFlavor.sellRate}% sell rate`}/>
             {(()=>{
               const improving=[...activeGymData].sort((a,b)=>(b.trend?.delta||0)-(a.trend?.delta||0))[0];
               const declining=[...activeGymData].sort((a,b)=>(a.trend?.delta||0)-(b.trend?.delta||0))[0];
               const show=improving&&improving.trend?.direction==="up"?improving:declining;
               const isUp=show===improving&&improving?.trend?.direction==="up";
               return show&&show.trend&&show.trend.direction!=="flat"
-                ?<InsightCard icon={isUp?"📈":"📉"} label={isUp?"MOST IMPROVED":"MOST DECLINING"} color={isUp?"#34C759":"#FF3B30"} title={show.gym} sub={`${isUp?"+":""}${show.trend.delta}pt sell rate vs earlier sessions`}/>
-                :<InsightCard icon="⚠️" label="MOST WASTED FLAVOR" color="#FF9500" title={worstFlavor.flavor} sub={`${worstFlavor.waste} units wasted`}/>;
+                ?<InsightCard icon={<Glyph name={isUp?"trendUp":"trendDown"} color={isUp?"#34C759":"#FF3B30"}/>} label={isUp?"MOST IMPROVED":"MOST DECLINING"} color={isUp?"#34C759":"#FF3B30"} title={show.gym} sub={`${isUp?"+":""}${show.trend.delta}pt sell rate vs earlier sessions`}/>
+                :<InsightCard icon={<Glyph name="alert" color="#FF9500"/>} label="MOST WASTED FLAVOR" color="#FF9500" title={worstFlavor.flavor} sub={`${worstFlavor.waste} units wasted`}/>;
             })()}
           </div>
           {cutGymData.length>0&&(
@@ -1347,8 +1385,8 @@ export default function FitFocusDashboard(){
           <div>
             <SectionTitle>Next Session — Projection</SectionTitle>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:8}}>
-              <InsightCard icon="💰" label="PROJECTED REVENUE" color="#34C759" title={formatRpFull(proj.revenue)} sub={`avg of last ${proj.basisSessions} sessions`}/>
-              <InsightCard icon="📊" label="PROJECTED PROFIT" color="#AF52DE" title={formatRpFull(proj.profit)} sub={proj.deltaPct===null?"not enough history to compare":`${dirArrow} ${Math.abs(proj.deltaPct)}% vs prior sessions`}/>
+              <InsightCard icon={<Glyph name="cash" color="#34C759"/>} label="PROJECTED REVENUE" color="#34C759" title={formatRpFull(proj.revenue)} sub={`avg of last ${proj.basisSessions} sessions`}/>
+              <InsightCard icon={<Glyph name="bars" color="#AF52DE"/>} label="PROJECTED PROFIT" color="#AF52DE" title={formatRpFull(proj.profit)} sub={proj.deltaPct===null?"not enough history to compare":`${dirArrow} ${Math.abs(proj.deltaPct)}% vs prior sessions`}/>
             </div>
 
             <SectionTitle>Recommended Quantity</SectionTitle>
@@ -1389,10 +1427,10 @@ export default function FitFocusDashboard(){
 
         {activeTab==="review"&&(()=>{
           const gymsWithIssues=(M.qtyRec||[])
-            .map(g=>({...g,issues:g.flavors.filter(f=>f.priority!=="low")}))
+            .map(g=>({...g,issues:g.flavors.filter(f=>f.signal.code!=="stable")}))
             .filter(g=>g.issues.length>0)
-            .map(g=>({...g,topPriority:g.issues.some(f=>f.priority==="high")?"high":"medium",totalWasteCost:g.issues.reduce((a,f)=>a+f.wasteCost,0)}))
-            .sort((a,b)=>PRIORITY_RANK[a.topPriority]-PRIORITY_RANK[b.topPriority]||b.totalWasteCost-a.totalWasteCost);
+            .map(g=>({...g,topSignal:g.issues.slice().sort((a,b)=>SIGNAL_RANK[a.signal.code]-SIGNAL_RANK[b.signal.code])[0].signal,totalWasteCost:g.issues.reduce((a,f)=>a+f.wasteCost,0)}))
+            .sort((a,b)=>SIGNAL_RANK[a.topSignal.code]-SIGNAL_RANK[b.topSignal.code]||b.totalWasteCost-a.totalWasteCost);
           return(
           <div>
             <SectionTitle>Gym Review</SectionTitle>
@@ -1401,24 +1439,24 @@ export default function FitFocusDashboard(){
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
                 {gymsWithIssues.map(g=>(
-                  <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"18px 20px",borderLeft:`3px solid ${PRIORITY_COLOR[g.topPriority]}`}}>
+                  <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"18px 20px",borderLeft:`3px solid ${g.topSignal.color}`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
                       <div style={{fontSize:15,fontWeight:700,color:"#1D1D1F"}}>{g.gymShort}</div>
-                      <span style={{fontSize:9,fontWeight:700,color:PRIORITY_COLOR[g.topPriority],background:PRIORITY_COLOR[g.topPriority]+"16",padding:"3px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.3}}>{g.issues.length} flagged</span>
+                      <span style={{fontSize:9,fontWeight:700,color:g.topSignal.color,background:g.topSignal.color+"16",padding:"3px 8px",borderRadius:20,letterSpacing:0.3}}>{g.issues.length} flagged</span>
                     </div>
                     {g.issues.map((f,i)=>(
                       <div key={f.flavor} style={{paddingTop:i===0?0:12,marginTop:i===0?0:12,borderTop:i===0?"none":"1px solid rgba(0,0,0,0.07)"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                           <span style={{fontSize:13,fontWeight:600,color:"#1D1D1F"}}>{f.flavor}</span>
-                          <span style={{fontSize:9,fontWeight:700,color:PRIORITY_COLOR[f.priority],background:PRIORITY_COLOR[f.priority]+"16",padding:"2px 7px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.3}}>{f.priority}</span>
+                          <span style={{fontSize:9,fontWeight:700,color:f.signal.color,background:f.signal.color+"16",padding:"2px 7px",borderRadius:20,letterSpacing:0.3}}>{f.signal.label}</span>
                         </div>
                         <div style={{fontSize:12,color:"#6E6E73",lineHeight:1.5}}>
-                          {f.flag==="high waste — trimmed"&&<div>Waste rate is {f.wasteRatePct}% of what's delivered — recommendation trimmed below the raw average to cut over-delivery.</div>}
-                          {f.flag==="often sells out"&&<div>Sells out in {f.stockoutRatePct}% of recent sessions with almost no waste — likely under-stocked, recommendation nudged up.</div>}
-                          {f.declineSince&&<div>Sales have been declining since {f.declineSince}.</div>}
-                          {!f.flag&&!f.declineSince&&<div>Limited recent data — recommendation is a lower-confidence estimate.</div>}
+                          {f.signal.code==="trim"&&<div>Waste rate is {f.wasteRatePct}% of what's delivered — recommendation trimmed below the raw average to cut over-delivery.</div>}
+                          {f.signal.code==="boost"&&<div>Sells out in {f.stockoutRatePct}% of recent sessions with almost no waste — likely under-stocked, an opportunity to increase.</div>}
+                          {f.signal.code==="watch"&&<div>Sales have been declining since {f.declineSince}.</div>}
+                          {f.signal.code==="lowdata"&&<div>Only {f.dataPoints} session{f.dataPoints===1?"":"s"} of recent history — recommendation is a rough estimate until more data comes in.</div>}
                         </div>
-                        {f.wasteCost>0&&<div style={{marginTop:4,fontSize:11,color:"#FF9500",fontWeight:600}}>{formatRpFull(f.wasteCost)} lost to waste this window</div>}
+                        {f.signal.code==="trim"&&f.wasteCost>0&&<div style={{marginTop:4,fontSize:11,color:"#FF3B30",fontWeight:600}}>{formatRpFull(f.wasteCost)} lost to waste this window</div>}
                       </div>
                     ))}
                   </div>
