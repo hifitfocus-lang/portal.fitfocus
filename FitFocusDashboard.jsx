@@ -452,21 +452,25 @@ const P={sold:"#34C759",waste:"#FF9500",produced:"#5E5CE6",rate:"#0A84FF",foreca
   flavors:["#FF2D55","#5E5CE6","#FFD60A","#0A84FF","#34C759","#FF9500"]};
 
 // ── UI PARTS ─────────────────────────────────────────────────────────────────
-function StatCard({label,value,color,icon}){
+function StatCard({label,value,color,icon,span=1,hero=false}){
   return(
-    <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",border:`1px solid ${color}33`,borderRadius:20,padding:"18px 20px"}}>
-      <div style={{fontSize:24,marginBottom:4}}>{icon}</div>
-      <div style={{color,fontSize:28,fontWeight:700,lineHeight:1}}>{value}</div>
-      <div style={{color:"#8E8E93",fontSize:12,marginTop:5,fontWeight:500}}>{label}</div>
+    <div style={{gridColumn:`span ${span}`,position:"relative",overflow:"hidden",background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",border:`1px solid ${color}33`,borderRadius:hero?26:20,padding:hero?"22px 24px":"18px 20px"}}>
+      {hero&&<div style={{position:"absolute",top:-36,right:-36,width:130,height:130,borderRadius:"50%",background:color,opacity:0.14,filter:"blur(34px)"}}/>}
+      <div style={{position:"relative",width:hero?42:32,height:hero?42:32,borderRadius:hero?13:10,background:`${color}1c`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:hero?20:16,marginBottom:hero?14:8}}>{icon}</div>
+      <div style={{position:"relative",color,fontSize:hero?34:26,fontWeight:700,lineHeight:1}}>{value}</div>
+      <div style={{position:"relative",color:"#8E8E93",fontSize:hero?13:12,marginTop:6,fontWeight:500}}>{label}</div>
     </div>
   );
 }
-function InsightCard({icon,label,title,sub,color}){
+function InsightCard({icon,label,title,sub,color,span=1}){
   return(
-    <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${color}33`}}>
-      <div style={{fontSize:10,color,fontWeight:700,letterSpacing:1,marginBottom:5}}>{icon} {label}</div>
-      <div style={{fontSize:16,fontWeight:800,color:"#1D1D1F",marginBottom:2}}>{title}</div>
-      <div style={{fontSize:11,color:"#8E8E93"}}>{sub}</div>
+    <div style={{gridColumn:`span ${span}`,background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${color}33`,display:"flex",gap:12,alignItems:"flex-start"}}>
+      <div style={{width:32,height:32,minWidth:32,borderRadius:10,background:`${color}1c`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{icon}</div>
+      <div style={{minWidth:0}}>
+        <div style={{fontSize:10,color,fontWeight:700,letterSpacing:1,marginBottom:4}}>{label}</div>
+        <div style={{fontSize:15,fontWeight:800,color:"#1D1D1F",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title}</div>
+        <div style={{fontSize:11,color:"#8E8E93"}}>{sub}</div>
+      </div>
     </div>
   );
 }
@@ -484,7 +488,7 @@ function GymReorderCard({g,color}){
   const shown=showAll?sorted:(actionable.length?actionable:sorted.slice(0,3));
   const hasMore=shown.length<sorted.length;
   return(
-    <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:20,border:`1px solid ${color}33`}}>
+    <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:20,border:`1px solid ${color}33`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div style={{fontSize:14,fontWeight:700,color}}>{g.gymShort}</div>
         <TrendBadge trend={g.trend}/>
@@ -541,8 +545,9 @@ function TimeframeSelector({value,onChange}){
 // ── DATE FILTER ────────────────────────────────────────────────────────────────
 function DateFilter({cutoff,onChange}){
   return(
-    <div style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",border:"1px solid rgba(255,255,255,0.5)",borderRadius:12,padding:"10px 16px",marginBottom:16}}>
-      <span style={{fontSize:12,color:"#8E8E93",fontWeight:600,whiteSpace:"nowrap"}}>📅 Up to:</span>
+    <div style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",border:"1px solid rgba(255,255,255,0.5)",borderRadius:12,padding:"10px 16px",marginBottom:16}}>
+      <span style={{width:22,height:22,minWidth:22,borderRadius:7,background:"#5E5CE61c",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>📅</span>
+      <span style={{fontSize:12,color:"#8E8E93",fontWeight:600,whiteSpace:"nowrap"}}>Up to:</span>
       <input type="date" value={cutoff} onChange={e=>onChange(e.target.value)}
         style={{background:"#F5F5F7",border:"1px solid #E5E5EA",borderRadius:8,padding:"6px 10px",color:"#1D1D1F",fontSize:12,fontFamily:"inherit",outline:"none",flex:1}}/>
       {cutoff&&<button onClick={()=>onChange("")}
@@ -564,7 +569,15 @@ function UploadScreen({onFile,dragging,onDragOver,onDragLeave,onDrop,error,syncL
     return(
       <div style={bgStyle}>
         {blobs}
-        <div style={{position:"relative",fontSize:38,marginBottom:12}}>☁️</div>
+        <style>{`
+          @keyframes ffBreathe{0%,100%{transform:scale(1);opacity:0.8;}50%{transform:scale(1.1);opacity:1;}}
+          @keyframes ffSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+        `}</style>
+        <div style={{position:"relative",width:84,height:84,marginBottom:20}}>
+          <div style={{position:"absolute",inset:0,borderRadius:"50%",background:"linear-gradient(135deg,#5E5CE6,#34C759)",filter:"blur(20px)",animation:"ffBreathe 2.4s ease-in-out infinite"}}/>
+          <div style={{position:"absolute",inset:0,borderRadius:"50%",border:"3px solid transparent",borderTopColor:"#5E5CE6",borderRightColor:"#5E5CE633",animation:"ffSpin 1s linear infinite"}}/>
+          <div style={{position:"absolute",inset:13,borderRadius:"50%",background:"rgba(255,255,255,0.65)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.8)",fontSize:20}}>📊</div>
+        </div>
         <div style={{position:"relative",color:"#1D1D1F",fontWeight:700,fontSize:15}}>Syncing your data…</div>
       </div>
     );
@@ -610,6 +623,40 @@ async function callAppsScript(payload){
   return await res.json();
 }
 
+// ── LOGO ──────────────────────────────────────────────────────────────────────
+// Put your logo file at public/logo.png in the repo — Vercel serves anything in public/
+// straight from the root URL, so /logo.png just works once deployed. No logo uploaded yet?
+// This quietly falls back to the "FF" text mark instead of showing a broken image icon.
+function LogoMark({size=52}){
+  const [imgError,setImgError]=useState(false);
+  return(
+    <div style={{width:size,height:size,borderRadius:size*0.3,background:"rgba(94,92,230,0.12)",border:"1px solid rgba(94,92,230,0.25)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
+      {!imgError
+        ? <img src="/logo.png" alt="FitFocus" onError={()=>setImgError(true)} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+        : <span style={{color:"#5E5CE6",fontSize:size*0.38,fontWeight:700,letterSpacing:"-0.03em"}}>FF</span>}
+    </div>
+  );
+}
+
+function GlassIconButton({onClick,disabled,icon,accent="#5E5CE6",children}){
+  const [pressed,setPressed]=useState(false);
+  return(
+    <button onClick={onClick} disabled={disabled}
+      onMouseDown={()=>setPressed(true)} onMouseUp={()=>setPressed(false)} onMouseLeave={()=>setPressed(false)}
+      onTouchStart={()=>setPressed(true)} onTouchEnd={()=>setPressed(false)}
+      style={{
+        cursor:disabled?"default":"pointer",display:"flex",alignItems:"center",gap:8,
+        background:"rgba(255,255,255,0.55)",backdropFilter:"blur(16px) saturate(180%)",WebkitBackdropFilter:"blur(16px) saturate(180%)",
+        border:"1px solid rgba(255,255,255,0.6)",borderRadius:980,padding:"6px 16px 6px 6px",
+        fontSize:13,fontWeight:600,color:"#1D1D1F",fontFamily:"inherit",
+        boxShadow:pressed?"inset 3px 3px 8px rgba(148,148,180,0.25),inset -3px -3px 8px rgba(255,255,255,0.6)":"4px 4px 10px rgba(148,148,180,0.18),-4px -4px 10px rgba(255,255,255,0.75)",
+        transform:pressed?"scale(0.97)":"scale(1)",
+        transition:"transform 0.12s,box-shadow 0.12s"}}>
+      <span style={{width:24,height:24,borderRadius:"50%",background:`linear-gradient(135deg,${accent},${accent}aa)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",flexShrink:0}}>{icon}</span>
+      {children}
+    </button>
+  );
+}
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 function LoginScreen({onSubmit,loading,error}){
   const [email,setEmail]=useState("");
@@ -619,9 +666,7 @@ function LoginScreen({onSubmit,loading,error}){
       <div style={{position:"fixed",top:"-15%",left:"-12%",width:420,height:420,borderRadius:"50%",background:"#5E5CE6",opacity:0.2,filter:"blur(100px)",pointerEvents:"none"}}/>
       <div style={{position:"fixed",bottom:"-10%",right:"-12%",width:400,height:400,borderRadius:"50%",background:"#34C759",opacity:0.16,filter:"blur(110px)",pointerEvents:"none"}}/>
       <div style={{position:"relative",background:"rgba(255,255,255,0.55)",backdropFilter:"blur(30px) saturate(180%)",WebkitBackdropFilter:"blur(30px) saturate(180%)",border:"1px solid rgba(255,255,255,0.6)",borderRadius:28,padding:"40px 32px",boxShadow:"0 20px 60px rgba(0,0,0,0.1),inset 0 1px 0 rgba(255,255,255,0.6)",width:"100%",maxWidth:340,display:"flex",flexDirection:"column",alignItems:"center"}}>
-        <div style={{width:52,height:52,borderRadius:16,background:"rgba(94,92,230,0.12)",border:"1px solid rgba(94,92,230,0.25)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:22}}>
-          <span style={{color:"#5E5CE6",fontSize:20,fontWeight:700,letterSpacing:"-0.03em"}}>FF</span>
-        </div>
+        <div style={{marginBottom:22}}><LogoMark size={52}/></div>
         <h1 style={{color:"#1D1D1F",fontSize:19,fontWeight:600,letterSpacing:"-0.02em",margin:"0 0 28px"}}>Sign in to FitFocus</h1>
         <form onSubmit={e=>{e.preventDefault();if(email&&password&&!loading)onSubmit(email,password);}} style={{width:"100%"}}>
           <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" autoFocus autoCapitalize="none" autoCorrect="off"
@@ -657,6 +702,7 @@ export default function FitFocusDashboard(){
   const [syncLoading,setSyncLoading]=useState(false);
   const [syncError,setSyncError]=useState("");
   const [lastSynced,setLastSynced]=useState(null);
+  const [uploadPressed,setUploadPressed]=useState(false);
 
   const handleLogin=useCallback(async(email,password)=>{
     setLoginLoading(true);setLoginError("");
@@ -789,7 +835,9 @@ export default function FitFocusDashboard(){
       <div style={{position:"relative",zIndex:1}}>
       {/* Header */}
       <div style={{background:"rgba(255,255,255,0.55)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",borderBottom:"1px solid rgba(255,255,255,0.5)",padding:"20px 26px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
-        <div>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <LogoMark size={34}/>
+          <div>
           <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:4}}>
             <span style={{fontSize:19,fontWeight:700,letterSpacing:"-0.02em"}}>FitFocus</span>
             <span style={{fontSize:10,color:"#5E5CE6",fontWeight:700,letterSpacing:1.2,background:"#5E5CE614",padding:"3px 7px",borderRadius:6}}>ANALYTICS</span>
@@ -798,14 +846,19 @@ export default function FitFocusDashboard(){
           </div>
           {lastSynced&&<div style={{color:"#AEAEB2",fontSize:11,marginTop:2}}>Synced {lastSynced.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}{syncError?` · last refresh failed (${syncError})`:""}</div>}
         </div>
+        </div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={syncFromScript} disabled={syncLoading}
-            style={{cursor:syncLoading?"default":"pointer",background:"rgba(255,255,255,0.5)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.6)",borderRadius:980,padding:"8px 16px",fontSize:13,fontWeight:600,color:"#1D1D1F",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
+          <GlassIconButton onClick={syncFromScript} disabled={syncLoading} icon={syncLoading?"⏳":"↻"} accent="#5E5CE6">
             {syncLoading?"Syncing…":"Refresh"}
-          </button>
+          </GlassIconButton>
           <label onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
-            style={{cursor:"pointer",background:"rgba(255,255,255,0.5)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.6)",borderRadius:980,padding:"8px 16px",fontSize:13,fontWeight:600,color:"#1D1D1F",display:"flex",alignItems:"center",gap:7,transition:"background 0.15s",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
+            onMouseDown={()=>setUploadPressed(true)} onMouseUp={()=>setUploadPressed(false)} onMouseLeave={()=>setUploadPressed(false)}
+            onTouchStart={()=>setUploadPressed(true)} onTouchEnd={()=>setUploadPressed(false)}
+            style={{cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.55)",backdropFilter:"blur(16px) saturate(180%)",WebkitBackdropFilter:"blur(16px) saturate(180%)",border:"1px solid rgba(255,255,255,0.6)",borderRadius:980,padding:"6px 16px 6px 6px",fontSize:13,fontWeight:600,color:"#1D1D1F",
+              boxShadow:uploadPressed?"inset 3px 3px 8px rgba(148,148,180,0.25),inset -3px -3px 8px rgba(255,255,255,0.6)":"4px 4px 10px rgba(148,148,180,0.18),-4px -4px 10px rgba(255,255,255,0.75)",
+              transform:uploadPressed?"scale(0.97)":"scale(1)",transition:"transform 0.12s,box-shadow 0.12s"}}>
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{if(e.target.files[0])processFile(e.target.files[0]);}}/>
+            <span style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#34C759,#34C759aa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",flexShrink:0}}>⇧</span>
             Upload new file
           </label>
         </div>
@@ -834,7 +887,10 @@ export default function FitFocusDashboard(){
         {activeTab==="overview"&&(<>
           {M.anomalies.length>0&&(
             <div style={{background:"#FF3B3011",border:"1px solid #FF3B3033",borderRadius:18,padding:"14px 18px",marginBottom:12}}>
-              <div style={{fontSize:11,color:"#FF3B30",fontWeight:700,marginBottom:6}}>⚠️ {M.anomalies.length} DATA ANEH DI EXCEL</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <span style={{width:18,height:18,minWidth:18,borderRadius:6,background:"#FF3B3022",color:"#FF3B30",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800}}>!</span>
+                <span style={{fontSize:11,color:"#FF3B30",fontWeight:700}}>{M.anomalies.length} DATA ANEH DI EXCEL</span>
+              </div>
               <div style={{fontSize:12,color:"#6E6E73",marginBottom:8}}>Remaining exceeds Delivered (data entry error) — counted as 0 sold for now, but should be verified in the source file:</div>
               {M.anomalies.slice(0,6).map((a,i)=>(
                 <div key={i} style={{fontSize:11,color:"#8E8E93",padding:"2px 0"}}>{a.date} · {gymShortName(a.gym)} · {a.flavor} — Delivered {a.delivered}, Remaining {a.remaining}</div>
@@ -844,18 +900,21 @@ export default function FitFocusDashboard(){
           )}
           {M.deliveryFallbackSessions.length>0&&(
             <div style={{background:"#FF950011",border:"1px solid #FF950033",borderRadius:18,padding:"14px 18px",marginBottom:12}}>
-              <div style={{fontSize:11,color:"#FF9500",fontWeight:700,marginBottom:6}}>⚠️ {M.deliveryFallbackSessions.length} SESI PAKAI DELIVERY COST DEFAULT</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <span style={{width:18,height:18,minWidth:18,borderRadius:6,background:"#FF950022",color:"#FF9500",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800}}>!</span>
+                <span style={{fontSize:11,color:"#FF9500",fontWeight:700}}>{M.deliveryFallbackSessions.length} SESI PAKAI DELIVERY COST DEFAULT</span>
+              </div>
               <div style={{fontSize:12,color:"#6E6E73"}}>No "Driver" column found in the sheet for: {M.deliveryFallbackSessions.join(", ")}. Defaulted to Rp {DELIVERY_COST_FALLBACK.toLocaleString("en-US")} — check the sheet if the real cost differed.</div>
             </div>
           )}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginBottom:12}}>
-            <StatCard icon="📦" label="Total Produced" value={M.totalProduced} color="#5E5CE6"/>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gridAutoRows:"minmax(0,auto)",gap:12,marginBottom:12}}>
+            <StatCard icon="📦" label="Total Produced" value={M.totalProduced} color="#5E5CE6" span={2} hero/>
             <StatCard icon="✅" label="Total Sold" value={M.totalSold} color="#34C759"/>
             <StatCard icon="🗑️" label="Total Waste" value={M.totalWaste} color="#FF9500"/>
-            <StatCard icon="📈" label="Avg Sell Rate" value={`${M.avgSellRate}%`} color="#0A84FF"/>
+            <StatCard icon="📈" label="Avg Sell Rate" value={`${M.avgSellRate}%`} color="#0A84FF" span={2}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12,marginBottom:4}}>
-            <InsightCard icon="🏆" label="BEST GYM" color="#34C759" title={bestGym.gym} sub={`${bestGym.sellRate}% sell rate · ${bestGym.sold} sold`}/>
+            <InsightCard icon="🏆" label="BEST GYM" color="#34C759" title={bestGym.gym} sub={`${bestGym.sellRate}% sell rate · ${bestGym.sold} sold`} span={2}/>
             <InsightCard icon="⚠️" label="MOST WASTE GYM" color="#FF9500" title={worstGym.gym} sub={`${worstGym.waste} units wasted`}/>
             <InsightCard icon="⭐" label="TOP FLAVOR" color="#34C759" title={bestFlavor.flavor} sub={`${bestFlavor.sellRate}% sell rate`}/>
             {(()=>{
@@ -875,7 +934,7 @@ export default function FitFocusDashboard(){
           )}
           <SectionTitle>Sold vs Waste</SectionTitle>
           <TimeframeSelector value={timeframe} onChange={setTimeframe}/>
-          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px"}}>
+          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px"}}>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={M.byTimeframe}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E5EA"/>
@@ -890,7 +949,7 @@ export default function FitFocusDashboard(){
           </div>
           <SectionTitle>Overall Sell Rate</SectionTitle>
           <TimeframeSelector value={timeframe} onChange={setTimeframe}/>
-          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px"}}>
+          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px"}}>
             <ResponsiveContainer width="100%" height={190}>
               <AreaChart data={M.byTimeframe}>
                 <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0A84FF" stopOpacity={0.3}/><stop offset="95%" stopColor="#0A84FF" stopOpacity={0}/></linearGradient></defs>
@@ -914,7 +973,7 @@ export default function FitFocusDashboard(){
           )}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12,marginBottom:8}}>
             {activeGymData.map((g,i)=>(
-              <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"15px 16px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}44`}}>
+              <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"15px 16px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}44`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                   <div style={{fontSize:12,fontWeight:700,color:GYM_COLORS[i%GYM_COLORS.length]}}>{g.gym}</div>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -942,7 +1001,7 @@ export default function FitFocusDashboard(){
           <SectionTitle>Sell Rate per Gym per Session</SectionTitle>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:8}}>
             {M.allGyms.map((gym,i)=>(
-              <div key={gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"10px 6px 4px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}33`}}>
+              <div key={gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"10px 6px 4px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}33`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0 10px 2px"}}>
                   <span style={{fontSize:11,fontWeight:700,color:GYM_COLORS[i%GYM_COLORS.length]}}>{gymShortName(gym)}</span>
                   <TrendBadge trend={M.gymData.find(g=>g.gym===gym)?.trend}/>
@@ -967,7 +1026,7 @@ export default function FitFocusDashboard(){
         {activeTab==="flavors"&&(<>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12}}>
             {M.flavorData.map((f,i)=>(
-              <div key={f.flavor} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"15px 16px",border:`1px solid ${FLAVOR_COLORS[i%FLAVOR_COLORS.length]}44`}}>
+              <div key={f.flavor} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"15px 16px",border:`1px solid ${FLAVOR_COLORS[i%FLAVOR_COLORS.length]}44`}}>
                 <div style={{fontSize:12,fontWeight:700,color:FLAVOR_COLORS[i%FLAVOR_COLORS.length],marginBottom:7}}>{f.flavor}</div>
                 <div style={{fontSize:24,fontWeight:700,color:"#1D1D1F",lineHeight:1}}>{f.sellRate}%</div>
                 <div style={{fontSize:11,color:"#8E8E93",marginBottom:7}}>sell rate</div>
@@ -980,7 +1039,7 @@ export default function FitFocusDashboard(){
           </div>
 
           <SectionTitle>Flavor Sell Rate per Session</SectionTitle>
-          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px",marginBottom:8}}>
+          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px",marginBottom:8}}>
             <ResponsiveContainer width="100%" height={230}>
               <LineChart data={M.flavorPerSession}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E5EA"/>
@@ -997,7 +1056,7 @@ export default function FitFocusDashboard(){
           </div>
 
           <SectionTitle>Waste Share by Flavor</SectionTitle>
-          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px"}}>
+          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px"}}>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={M.flavorData} dataKey="waste" nameKey="flavor" cx="50%" cy="50%" outerRadius={88}
@@ -1013,7 +1072,7 @@ export default function FitFocusDashboard(){
         {/* TRENDS */}
         {activeTab==="trends"&&(<>
           <SectionTitle>Cumulative Profit</SectionTitle>
-          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px",marginBottom:8}}>
+          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px",marginBottom:8}}>
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={M.cumulativeProfit}>
                 <defs><linearGradient id="cp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#AF52DE" stopOpacity={0.35}/><stop offset="95%" stopColor="#AF52DE" stopOpacity={0}/></linearGradient></defs>
@@ -1028,7 +1087,7 @@ export default function FitFocusDashboard(){
           </div>
 
           <SectionTitle>Session History</SectionTitle>
-          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,overflow:"auto"}}>
+          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,overflow:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:560}}>
               <thead>
                 <tr style={{background:"#E5E5EA"}}>
@@ -1083,7 +1142,7 @@ export default function FitFocusDashboard(){
               {label:"Total Delivery",value:M.totalDelivery,color:"#0A84FF",sub:`${M.sessionCount} sessions · avg Rp ${M.sessionCount>0?Math.round(M.totalDelivery/M.sessionCount).toLocaleString("en-US"):0}/session`},
               {label:"Real Profit",value:M.totalProfit,color:M.totalProfit>=0?"#AF52DE":"#FF3B30",sub:"Revenue − HPP − Delivery"},
             ].map(({label,value,color,sub})=>(
-              <div key={label} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${color}33`}}>
+              <div key={label} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${color}33`}}>
                 <div style={{fontSize:11,color:"#8E8E93",marginBottom:4}}>{label}</div>
                 <div style={{fontSize:18,fontWeight:700,color,lineHeight:1}}>{formatRpFull(value)}</div>
                 <div style={{fontSize:10,color:"#AEAEB2",marginTop:5}}>{sub}</div>
@@ -1099,7 +1158,7 @@ export default function FitFocusDashboard(){
           </div>
 
           <SectionTitle>Profit by Flavor</SectionTitle>
-          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px",marginBottom:8}}>
+          <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px",marginBottom:8}}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={M.flavorData.map(f=>({...f,flavor:f.flavorShort}))}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E5EA"/>
@@ -1117,7 +1176,7 @@ export default function FitFocusDashboard(){
           <SectionTitle>Gym Profitability</SectionTitle>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:8}}>
             {M.gymFinancial.map((g,i)=>(
-              <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${g.profit>=0?"#34C75933":"#FF3B3033"}`}}>
+              <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${g.profit>=0?"#34C75933":"#FF3B3033"}`}}>
                 <div style={{fontSize:12,fontWeight:700,color:GYM_COLORS[i%GYM_COLORS.length],marginBottom:8}}>{g.gym}</div>
                 {[["Revenue",g.revenue,"#34C759"],["HPP",g.hpp,"#FF9500"],["Delivery",g.delivery,"#0A84FF"],["Profit",g.profit,g.profit>=0?"#AF52DE":"#FF3B30"]].map(([l,v,c])=>(
                   <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
@@ -1149,7 +1208,7 @@ export default function FitFocusDashboard(){
                 {label:"Worst Session",value:worstSession.profit,color:"#FF3B30",sub:worstSession.date},
                 {label:"Losing Sessions",value:losingSessions.length,color:"#FF9500",isCount:true,sub:`of ${pf.length} sessions`},
               ].map(({label,value,color,sub,isCount})=>(
-                <div key={label} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${color}33`}}>
+                <div key={label} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:`1px solid ${color}33`}}>
                   <div style={{fontSize:11,color:"#8E8E93",marginBottom:4}}>{label}</div>
                   <div style={{fontSize:18,fontWeight:700,color,lineHeight:1}}>{isCount?value:formatRpFull(value)}</div>
                   {sub&&<div style={{fontSize:10,color:"#AEAEB2",marginTop:5}}>{sub}</div>}
@@ -1158,7 +1217,7 @@ export default function FitFocusDashboard(){
             </div>
 
             <SectionTitle>Profit per Session</SectionTitle>
-            <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px",marginBottom:12}}>
+            <div style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"16px 4px 8px",marginBottom:12}}>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={pf}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E5EA"/>
@@ -1261,7 +1320,7 @@ export default function FitFocusDashboard(){
               <div style={{fontSize:12,color:"#8E8E93",marginBottom:12,padding:"0 2px"}}>{invoiceDates.length} sessions selected · {totalBottles} bottles total · {invoiceData.length} gyms</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12}}>
                 {invoiceData.map((g,i)=>(
-                  <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"15px 16px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}44`}}>
+                  <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"15px 16px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}44`}}>
                     <div style={{fontSize:13,fontWeight:700,color:GYM_COLORS[i%GYM_COLORS.length],marginBottom:8}}>{g.gymShort}</div>
                     {g.flavors.map(f=>(
                       <div key={f.flavor} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#3A3A3C",padding:"3px 0"}}>
@@ -1300,7 +1359,7 @@ export default function FitFocusDashboard(){
             <SectionTitle>Sell Rate by Gym</SectionTitle>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:8}}>
               {(M.gymData||[]).filter(g=>g.active).map((g,i)=>(
-                <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"12px 14px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}33`}}>
+                <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"12px 14px",border:`1px solid ${GYM_COLORS[i%GYM_COLORS.length]}33`}}>
                   <div style={{fontSize:12,fontWeight:700,color:GYM_COLORS[i%GYM_COLORS.length],marginBottom:4}}>{g.gymShort}</div>
                   <div style={{fontSize:18,fontWeight:700,color:"#1D1D1F"}}>{g.sellRate}%</div>
                   <TrendBadge trend={g.trend}/>
@@ -1314,7 +1373,7 @@ export default function FitFocusDashboard(){
             ) : (
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12}}>
                 {M.topWaste.map((w,i)=>(
-                  <div key={w.gym+w.flavor} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:"1px solid #FF950044"}}>
+                  <div key={w.gym+w.flavor} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"14px 16px",border:"1px solid #FF950044"}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#FF9500",marginBottom:4}}>{w.gymShort} · {w.flavor}</div>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#3A3A3C"}}>
                       <span>{w.wasteUnits} pcs unsold</span>
@@ -1329,28 +1388,39 @@ export default function FitFocusDashboard(){
         })()}
 
         {activeTab==="review"&&(()=>{
-          const items=(M.qtyRec||[]).flatMap(g=>g.flavors.filter(f=>f.priority!=="low").map(f=>({...f,gym:g.gym,gymShort:g.gymShort})))
-            .sort((a,b)=>PRIORITY_RANK[a.priority]-PRIORITY_RANK[b.priority]||b.wasteCost-a.wasteCost);
+          const gymsWithIssues=(M.qtyRec||[])
+            .map(g=>({...g,issues:g.flavors.filter(f=>f.priority!=="low")}))
+            .filter(g=>g.issues.length>0)
+            .map(g=>({...g,topPriority:g.issues.some(f=>f.priority==="high")?"high":"medium",totalWasteCost:g.issues.reduce((a,f)=>a+f.wasteCost,0)}))
+            .sort((a,b)=>PRIORITY_RANK[a.topPriority]-PRIORITY_RANK[b.topPriority]||b.totalWasteCost-a.totalWasteCost);
           return(
           <div>
             <SectionTitle>Gym Review</SectionTitle>
-            {items.length===0?(
+            {gymsWithIssues.length===0?(
               <div style={{textAlign:"center",padding:"60px 20px",color:"#AEAEB2",fontSize:13}}>Nothing needs attention right now — every gym and flavor looks stable.</div>
             ):(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {items.map(f=>(
-                  <div key={f.gym+f.flavor} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"0 1px 2px rgba(0,0,0,0.03),0 10px 34px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:16,padding:"18px 20px",borderLeft:`3px solid ${PRIORITY_COLOR[f.priority]}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
-                      <div style={{fontSize:14,fontWeight:700,color:"#1D1D1F"}}>{f.gymShort} <span style={{fontWeight:400,color:"#AEAEB2"}}>· {f.flavor}</span></div>
-                      <span style={{fontSize:9,fontWeight:700,color:PRIORITY_COLOR[f.priority],background:PRIORITY_COLOR[f.priority]+"16",padding:"3px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.3}}>{f.priority}</span>
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {gymsWithIssues.map(g=>(
+                  <div key={g.gym} style={{background:"rgba(255,255,255,0.6)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",boxShadow:"7px 7px 16px rgba(148,148,180,0.16),-7px -7px 16px rgba(255,255,255,0.75),inset 0 1px 0 rgba(255,255,255,0.5)",borderRadius:18,padding:"18px 20px",borderLeft:`3px solid ${PRIORITY_COLOR[g.topPriority]}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
+                      <div style={{fontSize:15,fontWeight:700,color:"#1D1D1F"}}>{g.gymShort}</div>
+                      <span style={{fontSize:9,fontWeight:700,color:PRIORITY_COLOR[g.topPriority],background:PRIORITY_COLOR[g.topPriority]+"16",padding:"3px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.3}}>{g.issues.length} flagged</span>
                     </div>
-                    <div style={{fontSize:13,color:"#6E6E73",lineHeight:1.6}}>
-                      {f.flag==="high waste — trimmed"&&<div>Waste rate is {f.wasteRatePct}% of what's delivered — recommendation trimmed below the raw average to cut over-delivery.</div>}
-                      {f.flag==="often sells out"&&<div>Sells out in {f.stockoutRatePct}% of recent sessions with almost no waste — likely under-stocked, recommendation nudged up.</div>}
-                      {f.declineSince&&<div>Sales have been declining since {f.declineSince}.</div>}
-                      {!f.flag&&!f.declineSince&&<div>Limited recent data — recommendation is a lower-confidence estimate.</div>}
-                    </div>
-                    {f.wasteCost>0&&<div style={{marginTop:8,fontSize:12,color:"#FF9500",fontWeight:600}}>{formatRpFull(f.wasteCost)} lost to waste this window</div>}
+                    {g.issues.map((f,i)=>(
+                      <div key={f.flavor} style={{paddingTop:i===0?0:12,marginTop:i===0?0:12,borderTop:i===0?"none":"1px solid rgba(0,0,0,0.07)"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                          <span style={{fontSize:13,fontWeight:600,color:"#1D1D1F"}}>{f.flavor}</span>
+                          <span style={{fontSize:9,fontWeight:700,color:PRIORITY_COLOR[f.priority],background:PRIORITY_COLOR[f.priority]+"16",padding:"2px 7px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.3}}>{f.priority}</span>
+                        </div>
+                        <div style={{fontSize:12,color:"#6E6E73",lineHeight:1.5}}>
+                          {f.flag==="high waste — trimmed"&&<div>Waste rate is {f.wasteRatePct}% of what's delivered — recommendation trimmed below the raw average to cut over-delivery.</div>}
+                          {f.flag==="often sells out"&&<div>Sells out in {f.stockoutRatePct}% of recent sessions with almost no waste — likely under-stocked, recommendation nudged up.</div>}
+                          {f.declineSince&&<div>Sales have been declining since {f.declineSince}.</div>}
+                          {!f.flag&&!f.declineSince&&<div>Limited recent data — recommendation is a lower-confidence estimate.</div>}
+                        </div>
+                        {f.wasteCost>0&&<div style={{marginTop:4,fontSize:11,color:"#FF9500",fontWeight:600}}>{formatRpFull(f.wasteCost)} lost to waste this window</div>}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
