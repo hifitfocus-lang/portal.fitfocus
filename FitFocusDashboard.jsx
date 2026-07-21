@@ -51,7 +51,12 @@ function parseWorkbook(wb) {
         flavorRows.forEach(row => {
           const fn=String(row[0]||"").trim();
           if (!fn) return;
-          flavors[fn]=[parseFloat(row[ci])||0,parseFloat(row[ci+1])||0];
+          const rawSisa=row[ci+1];
+          // A sisa cell entered as '0 in Excel (leading apostrophe forces text) comes through
+          // here as the JS string "0" instead of the number 0 — that's how a prep-ahead
+          // production table marks "not counted yet" as opposed to a genuine confirmed zero.
+          const sisaUnknown = typeof rawSisa === "string" && rawSisa.trim() !== "";
+          flavors[fn]=[parseFloat(row[ci])||0,parseFloat(rawSisa)||0,sisaUnknown];
         });
         allGyms.push({gym:gymMap[ci],flavors});
       });
@@ -134,12 +139,28 @@ function buildMetrics(sessions, timeframe) {
   const sold=(d,s)=>Math.max(0,d-s);
 
   // SKIP sessions where total production = 0
-  const validSessions = sessions.filter(s => {
+  let validSessions = sessions.filter(s => {
     const totalProd = s.gyms.reduce((sum,g)=>sum+Object.values(g.flavors).reduce((a,[d])=>a+d,0),0);
     return totalProd > 0;
   });
 
   if (!validSessions.length) return null;
+
+  // "Pending" session detection — driven by the '0 (apostrophe-forced text) marker you use in
+  // the sheet for "not counted yet," as opposed to a genuine confirmed 0. A session where any
+  // row carries that marker is excluded from every stat below until you replace it with a
+  // real number — at which point it's parsed as an ordinary confirmed value and included
+  // automatically, no manual toggle needed.
+  const hasUnknownSisa=(s)=>s.gyms.some(g=>Object.values(g.flavors).some(([,,sisaUnknown])=>sisaUnknown));
+  const pendingSessions=validSessions.filter(hasUnknownSisa);
+  // Safety: never exclude EVERYTHING (e.g. brand-new sheet with only 1-2 sessions ever) — an
+  // inflated-but-visible dashboard beats an empty one.
+  if(pendingSessions.length && pendingSessions.length<validSessions.length){
+    const pendingSet=new Set(pendingSessions);
+    validSessions = validSessions.filter(s=>!pendingSet.has(s));
+  } else {
+    pendingSessions.length=0;
+  }
 
   // BUGFIX: previously d-s was silently clamped to 0 with Math.max(0,d-s) whenever
   // Remaining > Delivered (an impossible real-world value — a data-entry typo). That clamp
@@ -454,11 +475,12 @@ function buildMetrics(sessions, timeframe) {
   };
 
   const n=byDate.length;
+  const pendingSessionDates=pendingSessions.map(s=>formatDateShort(s.date));
 
   return{byDate,byTimeframe,byDateFinancial,gymData,gymPerSession,gymFinancial,flavorData,flavorPerSession,cumulativeProfit,
     totalProduced,totalSold,totalWaste,avgSellRate,
     totalRevenue,totalProfit,totalWasteCost,totalHPP,totalDelivery,
-    qtyRec,topWaste,nextSessionProjection,allGyms,allFlavors,activeGymCount,cutGymCount,recentWindow:RECENT_WINDOW,anomalies,deliveryFallbackSessions,
+    qtyRec,topWaste,nextSessionProjection,allGyms,allFlavors,activeGymCount,cutGymCount,recentWindow:RECENT_WINDOW,anomalies,deliveryFallbackSessions,pendingSessionDates,
     sessionCount:n,gymCount:allGyms.length};
 }
 
@@ -515,19 +537,28 @@ function InsightCard({icon,label,title,sub,color,span=1}){
   );
 }
 // Auto-drifting slideshow for the 4 insight cards — same size for all, advances on its own,
-// and tapping the card or a dot jumps to a slide directly (no swipe-gesture plumbing needed).
+// and tapping the left/right half of the card (or a dot) jumps between slides directly.
 function InsightCarousel({items}){
   const [index,setIndex]=useState(0);
+  const AUTO_MS=3500; // ← change this number (milliseconds) to adjust how long each card shows before auto-advancing
+  // Dependency includes `index` on purpose — every advance (auto OR manual tap) restarts this
+  // timer, so a manually-tapped card always gets its own full AUTO_MS before advancing again,
+  // instead of inheriting whatever time was left on the previous card's countdown.
   useEffect(()=>{
-    const t=setInterval(()=>setIndex(i=>(i+1)%items.length),4500);
+    const t=setInterval(()=>setIndex(i=>(i+1)%items.length),AUTO_MS);
     return ()=>clearInterval(t);
-  },[items.length]);
+  },[index,items.length]);
+  const handleTap=(e)=>{
+    const rect=e.currentTarget.getBoundingClientRect();
+    const tappedLeftHalf=(e.clientX-rect.left)<rect.width/2;
+    setIndex(i=>tappedLeftHalf?(i-1+items.length)%items.length:(i+1)%items.length);
+  };
   return(
     <div>
       <div style={{position:"relative",overflow:"hidden",borderRadius:18,height:96}}>
-        <div style={{display:"flex",height:"100%",transition:"transform 0.55s cubic-bezier(0.4,0,0.2,1)",transform:`translateX(-${index*100}%)`}}>
+        <div style={{display:"flex",height:"100%",transition:"transform 0.35s cubic-bezier(0.4,0,0.2,1)",transform:`translateX(-${index*100}%)`}}>
           {items.map((it,i)=>(
-            <div key={i} onClick={()=>setIndex((index+1)%items.length)} style={{minWidth:"100%",height:"100%",cursor:"pointer"}}>
+            <div key={i} onClick={handleTap} style={{minWidth:"100%",height:"100%",cursor:"pointer"}}>
               <InsightCard {...it}/>
             </div>
           ))}
@@ -1008,6 +1039,15 @@ export default function FitFocusDashboard(){
                 <span style={{fontSize:11,color:"#FF9500",fontWeight:700}}>{M.deliveryFallbackSessions.length} SESI PAKAI DELIVERY COST DEFAULT</span>
               </div>
               <div style={{fontSize:12,color:"#6E6E73"}}>No "Driver" column found in the sheet for: {M.deliveryFallbackSessions.join(", ")}. Defaulted to Rp {DELIVERY_COST_FALLBACK.toLocaleString("en-US")} — check the sheet if the real cost differed.</div>
+            </div>
+          )}
+          {M.pendingSessionDates.length>0&&(
+            <div style={{background:"#0A84FF11",border:"1px solid #0A84FF33",borderRadius:18,padding:"14px 18px",marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <span style={{width:18,height:18,minWidth:18,borderRadius:6,background:"#0A84FF22",color:"#0A84FF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800}}>i</span>
+                <span style={{fontSize:11,color:"#0A84FF",fontWeight:700}}>{M.pendingSessionDates.length} SESI BELUM ADA DATA SISA</span>
+              </div>
+              <div style={{fontSize:12,color:"#6E6E73"}}>{M.pendingSessionDates.join(", ")} — ditandai '0 (belum dihitung), jadi dikecualikan dari semua statistik sampai angka aslinya diisi.</div>
             </div>
           )}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gridAutoRows:"minmax(0,auto)",gap:12,marginBottom:12}}>
